@@ -5,7 +5,7 @@ APPS_DIR = os.path.join(BASE_DIR, 'apps')
 
 
 APPS_REGISTRY = (
-    'markov',
+    'mybot',
 )
 
 HOSTNAME = 'localhost'

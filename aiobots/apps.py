@@ -1,16 +1,29 @@
 class BotApp:
 
-    router = {}
-    view_class = None
+    routes = {}
+
+    def __init__(self, app_name):
+        self.app_name = app_name
+
+    def register(self, view_class, bots=[]):
+        print(bots)
+        print('ok')
+        view_class.bots = bots
+        view_class.app_name = self.app_name
+        self.routes[view_class] = view_class.router
+
+    def setup(self, webapp):
+        for view_class, router in self.routes.items():
+            for route, view in router.routes.items():
+                webapp.router.add_view(route, view_class, name=view['name'])
+
+
+class BotRouter:
+
+    routes = {}
 
     def route(self, route, name=None, methods=['GET']):
         def _route(func):
-            self.router[route] = {'func': func, 'name': name, 'methods': methods}
+            self.routes[route] = {'func': func, 'name': name, 'methods': methods}
             return func
         return _route
-
-    def setup(self, webapp):
-        for route, view in self.router.items():
-            print(route)
-            print(view)
-            webapp.router.add_view(route, self.view_class, name=view['name'])

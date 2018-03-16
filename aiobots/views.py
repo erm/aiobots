@@ -4,19 +4,29 @@ from aiohttp import web
 import aiohttp_jinja2
 import jinja2
 
+from .helpers import get_reverse_match
 
-def get_reverse_match(match_info):
-    return match_info._route._resource._formatter
+
+class Bot:
+
+    name = None
+    data = {}
+
+    def __init__(self, group):
+        self.group = group
+
+    # TODO: Helpers and raise if handle_response undefined
 
 
 class BotView(web.View):
 
-    name = None
-    botapp = None
+    app_name = None
+    bots = []
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.webapp = self._request.app
+        self.socket_groups = self.webapp['AIOBOTS']['APPS'][self.app_name]['socket_groups']
         self.group_name = self._request._match_info['group_name']
         aiohttp_jinja2.setup(
             self.webapp,
@@ -24,15 +34,19 @@ class BotView(web.View):
                 os.path.join(self.webapp['AIOBOTS']['SETTINGS'].APPS_DIR, 'templates')
             )
         )
-        self.webapp['AIOBOTS']['BOTS'][self.group_name] = []
-        self.group = self.webapp['AIOBOTS']['BOTS'][self.group_name]
+        self.socket_groups[self.group_name] = {'bots': {}, 'data': {}, 'sockets': []}
+        self.group = self.socket_groups[self.group_name]
+        self.init_bots()
+
+    def init_bots(self):
+        bots = {bot.name: bot(self.group) for bot in self.bots}
+        self.group['bots'] = bots
 
     async def __handle_request(self, method):
         request_path = self._request._rel_url.path
         match_info = self._request._match_info
         lookup_path = get_reverse_match(match_info) if match_info else request_path
-        print(lookup_path)
-        view = self.botapp.router[lookup_path]
+        view = self.router.routes[lookup_path]
         if method not in view['methods']:
             raise web.HTTPMethodNotAllowed
         handler = view['func']
@@ -48,5 +62,5 @@ class BotView(web.View):
     async def get_response(self):
         response = web.WebSocketResponse()
         await response.prepare(self._request)
-        self.group.append(response)
+        self.group['sockets'].append(response)
         return response

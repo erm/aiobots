@@ -13,3 +13,4 @@ def get_url(request, name, kwargs={}, is_ws=False):
 
 def get_reverse_match(match_info):
     return match_info._route._resource._formatter
+
