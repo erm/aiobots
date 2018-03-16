@@ -1,0 +1,50 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <title>{{ title }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+</head>
+<body>
+  <h1>{{ title }}</h1>
+  <h3>Status: <span id="status"></span></h3>
+  <p>
+    Available commands: !markovify [url.to.src.txt], !talk
+  </p>
+  <div style="border: 1px solid black;">
+    <div id="messages"></div>
+  </div>
+  <br>
+  <strong style="color: blue;">{{ user }}</strong><input id="message_input"></input>
+    <script type="text/javascript">
+      $(document).ready(function() {
+        var status = $('#status');
+        var ws = new WebSocket("{{ ws_url }}");
+        $('#message_input').on('keypress', function(e) {
+            if(e.which == 13) {
+              var msg = $('#message_input').val();
+              ws.send(msg);
+              $('#message_input').val('');
+            }
+        });
+        ws.onopen = function(msg) {
+            console.log('Connected.');
+            status.text('Connected.');
+        };
+        ws.onmessage = function(msg) {
+            console.log(msg);
+            new_msg = '<p>'+msg.data+'</p>'
+            $("#messages").append(new_msg);
+        };
+        ws.onclose = function(msg) {
+            status.text('Disconnected.');
+            console.log('Disconnected.');
+        }
+        ws.error = function(err) {
+            status.text(err);
+            console.log(err); 
+        }
+      });
+    </script>
+</body>
+</html>
