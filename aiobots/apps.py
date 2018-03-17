@@ -6,8 +6,6 @@ class BotApp:
         self.app_name = app_name
 
     def register(self, view_class, bots=[]):
-        print(bots)
-        print('ok')
         view_class.bots = bots
         view_class.app_name = self.app_name
         self.routes[view_class] = view_class.router

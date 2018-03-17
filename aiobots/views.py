@@ -1,10 +1,13 @@
 import os
 
+import aiohttp
 from aiohttp import web
+from aiohttp_session import get_session
 import aiohttp_jinja2
 import jinja2
 
 from .helpers import get_reverse_match
+from .sessions import get_identity
 
 
 class Bot:
@@ -34,8 +37,9 @@ class BotView(web.View):
                 os.path.join(self.webapp['AIOBOTS']['SETTINGS'].APPS_DIR, 'templates')
             )
         )
-        self.socket_groups[self.group_name] = {'bots': {}, 'data': {}, 'sockets': []}
+        self.socket_groups[self.group_name] = {'bots': {}, 'data': {'messages': []}, 'sessions': {}}
         self.group = self.socket_groups[self.group_name]
+        self.sessions = self.group['sessions']
         self.init_bots()
 
     def init_bots(self):
@@ -50,7 +54,8 @@ class BotView(web.View):
         if method not in view['methods']:
             raise web.HTTPMethodNotAllowed
         handler = view['func']
-        response = await handler(self, self._request)
+        session = await get_session(self._request)
+        response = await handler(self, self._request, session)
         return response
 
     async def get(self):
@@ -59,8 +64,32 @@ class BotView(web.View):
     async def post(self):
         return await self.__handle_request('POST')
 
-    async def get_response(self):
-        response = web.WebSocketResponse()
-        await response.prepare(self._request)
-        self.group['sockets'].append(response)
-        return response
+    async def handle_ws(self):
+        ws = web.WebSocketResponse()
+        await ws.prepare(self._request)
+        session = await get_session(self._request)
+        identity = await get_identity(session)
+        try:
+            user = self.sessions[identity]
+        except KeyError:
+            self.sessions[identity] = {'sockets': []}
+            user = self.sessions[identity]
+            user['sockets'].append(ws)
+        async for msg in ws:
+            if msg.type == aiohttp.WSMsgType.TEXT:
+                if msg.data == 'close':
+                    identity = await get_identity(session)
+                    user = self.sessions[identity]
+                    user['sockets'].remove(ws)
+                    await ws.close()
+                else:
+                    msg_text = msg.data
+                    group_msg = {'user': user, 'text': msg_text}
+                    self.group['data']['messages'].append(group_msg)
+                    for user in self.group['sessions']:
+                        user_sockets = self.group['sessions'][user]['sockets']
+                        for ws in user_sockets:
+                            await ws.send_str(msg_text)
+            elif msg.type == aiohttp.WSMsgType.ERROR:
+                print('Websocket connection closed with exception {}'.format(ws.exception()))
+        return ws

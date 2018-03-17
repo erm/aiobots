@@ -1,3 +1,7 @@
+import base64
+from cryptography import fernet
+
+
 def get_url(request, name, kwargs={}, is_ws=False):
     resource = request.app.router[name]
     try:
@@ -14,3 +18,6 @@ def get_url(request, name, kwargs={}, is_ws=False):
 def get_reverse_match(match_info):
     return match_info._route._resource._formatter
 
+
+def generate_secret_key():
+    return base64.urlsafe_b64decode(fernet.Fernet.generate_key())
